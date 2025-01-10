@@ -1,7 +1,7 @@
 # Canvas Table Workbook Application
 
 ## Overview
-This application is a web-based workbook that provides users with a vertically endless canvas where they can add, drag, and position tables. The canvas is designed to match the width of a standard letter page (8.5" x 11") and allows for infinite vertical scrolling. Users can add multiple tables containing dummy data and freely position them within the canvas.
+This application is a web-based workbook that provides users with a vertically endless canvas where they can add, drag, and position tables. The canvas is designed to match the width of a standard letter page (8.5" x 11") and allows for infinite vertical scrolling. Users can add multiple tables containing dummy data and freely position them within the canvas. Tables can be resized by dragging the bottom-right corner.
 
 ## Technical Stack
 - **React + Vite**: For fast development and optimal production builds
@@ -37,6 +37,20 @@ Represents individual tables within the workbook with:
 - Drag handle functionality
 - Position management
 - Dummy data generation
+- Resizable functionality with a minimum width of 400px
+
+The Table component manages its own size state:
+```typescript
+const [size, setSize] = useState({ width: 400, height: 'auto' });
+const [isResizing, setIsResizing] = useState(false);
+```
+
+Resizing is implemented using mouse events:
+```typescript
+const handleResizeStart = useCallback((e: React.MouseEvent) => {
+  // ... resize logic
+}, [size.width]);
+```
 
 ### 3. Styling (`src/index.css`)
 The application uses a combination of TailwindCSS utilities and custom CSS:
@@ -47,6 +61,15 @@ The application uses a combination of TailwindCSS utilities and custom CSS:
   min-height: 100vh;
   background: white;
   position: relative;
+}
+
+.table-container {
+  position: absolute;
+  cursor: move;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  overflow: hidden;
 }
 ```
 
@@ -69,6 +92,7 @@ The application uses a combination of TailwindCSS utilities and custom CSS:
 1. **DND Kit Integration**:
    - Uses `DndContext` for drag-and-drop functionality
    - Implements `useSortable` hook for table dragging
+   - Disables dragging during resize operations
    ```typescript
    const {
      attributes,
@@ -76,7 +100,7 @@ The application uses a combination of TailwindCSS utilities and custom CSS:
      setNodeRef,
      transform,
      transition,
-   } = useSortable({ id });
+   } = useSortable({ id, disabled: isResizing });
    ```
 
 2. **Position Updates**:
@@ -97,17 +121,25 @@ The application uses a combination of TailwindCSS utilities and custom CSS:
    };
    ```
 
-2. **Data Structure**:
+2. **Table Resizing**:
+   - Resize handle appears on hover in the bottom-right corner
+   - Maintains minimum width of 400px
+   - Disables dragging during resize operations
+   - Uses mouse events for smooth resizing experience
+   ```typescript
+   const handleResizeStart = (e: React.MouseEvent) => {
+     // ... resize initialization
+     const handleMouseMove = (e: MouseEvent) => {
+       const deltaX = e.pageX - startX;
+       const newWidth = Math.max(400, startWidth + deltaX);
+       setSize(prev => ({ ...prev, width: newWidth }));
+     };
+   };
+   ```
+
+3. **Data Structure**:
    - Each table contains 10 rows of dummy data
    - Data is generated with random values for age and location
-   ```typescript
-   const dummyData = Array.from({ length: 10 }, (_, i) => ({
-     id: i + 1,
-     name: `Person ${i + 1}`,
-     age: Math.floor(Math.random() * 50) + 20,
-     location: ['New York', 'London', 'Tokyo', 'Paris', 'Berlin'][Math.floor(Math.random() * 5)],
-   }));
-   ```
 
 ## Performance Considerations
 1. **Canvas Resizing**:
@@ -117,15 +149,18 @@ The application uses a combination of TailwindCSS utilities and custom CSS:
 2. **Rendering Optimization**:
    - Tables are rendered using unique keys for efficient updates
    - Transform operations use CSS transforms for smooth animations
+   - Resize operations use local state to prevent unnecessary re-renders
+   - Mouse move events are cleaned up properly to prevent memory leaks
 
 ## Browser Compatibility
 The application uses modern web technologies:
 - CSS Grid and Flexbox for layout
 - CSS Transform for table positioning
 - Modern JavaScript features (requires ES6+ support)
+- Mouse event handling for resize operations
 
 ## Future Enhancements
-1. Table resizing functionality
+1. ~~Table resizing functionality~~ ✓
 2. Data persistence
 3. Table deletion
 4. Editable table data
@@ -137,7 +172,7 @@ The application uses modern web technologies:
 src/
 ├── components/
 │   ├── Workbook.tsx    # Main canvas container
-│   └── Table.tsx       # Table component
+│   └── Table.tsx       # Table component with resize functionality
 ├── App.tsx             # Root component
 └── index.css          # Global styles and canvas layout
 ```
@@ -153,11 +188,13 @@ src/
    - Custom hooks for complex logic
    - Proper state management
    - Controlled components
+   - Event cleanup in useEffect and event handlers
 
 3. **CSS Organization**:
    - Utility-first approach with Tailwind
    - Scoped custom CSS for specific components
    - Responsive design considerations
+   - Interactive states (hover, active)
 
 4. **Code Structure**:
    - Clear component hierarchy

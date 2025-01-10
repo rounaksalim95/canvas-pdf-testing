@@ -8,7 +8,7 @@ Requirements:
 - [x] The workbook should have a vertically endless canvas on which the user can drag and drop tables
 - [x] The user can click a button to add a table to the workbook
 - [x] The tables should have dummy data with 10 rows with the following columns: id, name, age, location
-- [ ] The table should be resizable
+- [x] The table should be resizable
 
 Please keep all styling to a minimum as we're more focused on the functionality with the most simplicity.
 Please also try to keep the code as simple as possible and add comments to clearly explain the code.
@@ -25,7 +25,9 @@ However, use any library that you think is necessary or might make the code simp
 
 # Next Steps
 
-1. Add table resizing functionality
-2. Add more styling and polish to the UI
-3. Add ability to delete tables
-4. Add ability to edit table data
+1. Add ability to delete tables
+2. Add ability to edit table data
+3. Add data persistence
+4. Add more styling and polish to the UI
+5. Add undo/redo functionality
+6. Add export to PDF capability
