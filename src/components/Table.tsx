@@ -10,6 +10,11 @@ interface TableProps {
   currentPage?: number;
 }
 
+interface TableSize {
+  width: number;
+  height: string | number;
+}
+
 // Dummy data for the table
 const dummyData = Array.from({ length: 10 }, (_, i) => ({
   id: i + 1,
@@ -18,16 +23,28 @@ const dummyData = Array.from({ length: 10 }, (_, i) => ({
   location: ['New York', 'London', 'Tokyo', 'Paris', 'Berlin'][Math.floor(Math.random() * 5)],
 }));
 
+const STORAGE_KEY_PREFIX = 'table-size-';
+
 export function Table({ id, position, isPdfMode = false, currentPage = 1 }: TableProps) {
-  const [size, setSize] = useState({ width: 400, height: 'auto' });
+  // Initialize size from localStorage if available
+  const [size, setSize] = useState<TableSize>(() => {
+    const savedSize = localStorage.getItem(`${STORAGE_KEY_PREFIX}${id}`);
+    return savedSize ? JSON.parse(savedSize) : { width: 400, height: 'auto' };
+  });
+  
   const [isResizing, setIsResizing] = useState(false);
   const [rowHeight, setRowHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // Save size to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${id}`, JSON.stringify(size));
+  }, [size, id]);
+
   // Measure row and header heights for pagination calculations
   useEffect(() => {
-    if (tableRef.current && isPdfMode) {
+    if (tableRef.current) {
       const tableRows = tableRef.current.querySelectorAll('tbody tr');
       if (tableRows.length > 0) {
         setRowHeight(tableRows[0].getBoundingClientRect().height);
@@ -37,7 +54,7 @@ export function Table({ id, position, isPdfMode = false, currentPage = 1 }: Tabl
         setHeaderHeight(header.getBoundingClientRect().height);
       }
     }
-  }, [isPdfMode]);
+  }, []);
 
   const {
     attributes,
@@ -59,7 +76,7 @@ export function Table({ id, position, isPdfMode = false, currentPage = 1 }: Tabl
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.pageX - startX;
       const newWidth = Math.max(400, startWidth + deltaX); // Minimum width of 400px
-      setSize(prev => ({ ...prev, width: newWidth }));
+      setSize((prev: TableSize) => ({ ...prev, width: newWidth }));
     };
 
     const handleMouseUp = () => {
@@ -73,7 +90,7 @@ export function Table({ id, position, isPdfMode = false, currentPage = 1 }: Tabl
   }, [size.width, isPdfMode]);
 
   // Calculate pagination for PDF mode
-  const pagination = isPdfMode
+  const pagination = isPdfMode && rowHeight > 0
     ? calculateTablePagination(
         {
           top: position.y,
@@ -98,15 +115,11 @@ export function Table({ id, position, isPdfMode = false, currentPage = 1 }: Tabl
     left: position.x,
     top: isPdfMode ? getRelativeY(position.y) : position.y,
     width: size.width,
-    display: isVisible ? 'block' : 'none',
   };
 
   // Get the rows to display based on pagination
-  const visibleData = isPdfMode
-    ? dummyData.slice(
-        pagination?.startRow ?? 0,
-        pagination?.endRow ?? dummyData.length
-      )
+  const visibleData = isPdfMode && pagination
+    ? dummyData.slice(pagination.startRow, pagination.endRow)
     : dummyData;
 
   if (isPdfMode && !isVisible) {

@@ -8,14 +8,26 @@ interface TableData {
   position: { x: number; y: number };
 }
 
+const STORAGE_KEY = 'workbook-tables';
+
 export function Workbook() {
-  const [tables, setTables] = useState<TableData[]>([]);
+  // Initialize state from localStorage if available
+  const [tables, setTables] = useState<TableData[]>(() => {
+    const savedTables = localStorage.getItem(STORAGE_KEY);
+    return savedTables ? JSON.parse(savedTables) : [];
+  });
+  
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasHeight, setCanvasHeight] = useState<number>(window.innerHeight);
   const [currentPage, setCurrentPage] = useState(1);
   
   // Check if we're in PDF mode
   const isPdfMode = new URLSearchParams(window.location.search).get('pdf') === 'true';
+
+  // Save tables to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tables));
+  }, [tables]);
 
   // Update canvas height when tables are dragged
   useEffect(() => {
@@ -83,7 +95,7 @@ export function Workbook() {
 
   const addTable = () => {
     const newTable: TableData = {
-      id: `table-${tables.length + 1}`,
+      id: `table-${Date.now()}`, // Use timestamp for unique IDs
       position: { x: 50, y: 50 + tables.length * 50 },
     };
     setTables([...tables, newTable]);
@@ -97,6 +109,9 @@ export function Workbook() {
       )
     : 1;
 
+  // Generate an array of page numbers for PDF mode
+  const pages = isPdfMode ? Array.from({ length: maxPage }, (_, i) => i + 1) : [1];
+
   return (
     <div className={`workbook-container ${isPdfMode ? 'pdf-mode' : ''}`}>
       {!isPdfMode && (
@@ -109,30 +124,53 @@ export function Workbook() {
           </button>
         </div>
       )}
-      <div 
-        ref={canvasRef}
-        className="workbook-canvas"
-        style={isPdfMode ? {
-          height: `${PDF_PAGE.HEIGHT}px`,
-          marginBottom: '2rem',
-          pageBreakAfter: 'always',
-          padding: `${PDF_PAGE.MARGIN}px`,
-        } : {
-          height: canvasHeight
-        }}
-      >
-        <DndContext onDragEnd={handleDragEnd}>
-          {tables.map((table) => (
-            <Table
-              key={table.id}
-              id={table.id}
-              position={table.position}
-              isPdfMode={isPdfMode}
-              currentPage={currentPage}
-            />
-          ))}
-        </DndContext>
-      </div>
+      {isPdfMode ? (
+        // Render each page in PDF mode
+        pages.map((pageNum) => (
+          <div
+            key={pageNum}
+            className="workbook-canvas"
+            style={{
+              height: `${PDF_PAGE.HEIGHT}px`,
+              marginBottom: '2rem',
+              pageBreakAfter: 'always',
+              padding: `${PDF_PAGE.MARGIN}px`,
+              position: 'relative',
+            }}
+          >
+            <DndContext onDragEnd={handleDragEnd}>
+              {tables.map((table) => (
+                <Table
+                  key={table.id}
+                  id={table.id}
+                  position={table.position}
+                  isPdfMode={true}
+                  currentPage={pageNum}
+                />
+              ))}
+            </DndContext>
+          </div>
+        ))
+      ) : (
+        // Regular workbook view
+        <div 
+          ref={canvasRef}
+          className="workbook-canvas"
+          style={{ height: canvasHeight }}
+        >
+          <DndContext onDragEnd={handleDragEnd}>
+            {tables.map((table) => (
+              <Table
+                key={table.id}
+                id={table.id}
+                position={table.position}
+                isPdfMode={false}
+                currentPage={1}
+              />
+            ))}
+          </DndContext>
+        </div>
+      )}
       {isPdfMode && maxPage > 0 && (
         <div className="fixed bottom-4 right-4 flex items-center space-x-2">
           <button
