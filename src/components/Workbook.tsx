@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { Table } from './Table';
+import { PDF_PAGE, getPageForY } from '../utils/pdfMode';
 
 interface TableData {
   id: string;
@@ -11,10 +12,14 @@ export function Workbook() {
   const [tables, setTables] = useState<TableData[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasHeight, setCanvasHeight] = useState<number>(window.innerHeight);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Check if we're in PDF mode
+  const isPdfMode = new URLSearchParams(window.location.search).get('pdf') === 'true';
 
   // Update canvas height when tables are dragged
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || isPdfMode) return;
     
     const updateCanvasHeight = () => {
       const canvas = canvasRef.current;
@@ -31,16 +36,36 @@ export function Workbook() {
     };
 
     updateCanvasHeight();
-  }, [tables]);
+  }, [tables, isPdfMode]);
+
+  // Update URL when page changes in PDF mode
+  useEffect(() => {
+    if (!isPdfMode) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', currentPage.toString());
+    window.history.replaceState({}, '', url.toString());
+  }, [currentPage, isPdfMode]);
+
+  // Load page from URL on initial load
+  useEffect(() => {
+    if (!isPdfMode) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const page = parseInt(params.get('page') || '1', 10);
+    setCurrentPage(page);
+  }, [isPdfMode]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (isPdfMode) return;
+    
     const { active, delta } = event;
     
     setTables((tables) =>
       tables.map((table) => {
         if (table.id === active.id) {
           // Ensure table stays within canvas bounds
-          const newX = Math.max(0, Math.min(table.position.x + delta.x, 816 - 400)); // 400px is min table width
+          const newX = Math.max(0, Math.min(table.position.x + delta.x, PDF_PAGE.WIDTH - 400)); // 400px is min table width
           const newY = Math.max(0, table.position.y + delta.y);
           
           return {
@@ -64,20 +89,37 @@ export function Workbook() {
     setTables([...tables, newTable]);
   };
 
+  // Get the maximum page number based on table positions
+  const maxPage = isPdfMode
+    ? Math.max(
+        1,
+        ...tables.map((table) => getPageForY(table.position.y + 500)) // Add some height for the table
+      )
+    : 1;
+
   return (
-    <div className="workbook-container">
-      <div className="fixed top-4 left-4 z-10">
-        <button
-          onClick={addTable}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Add Table
-        </button>
-      </div>
+    <div className={`workbook-container ${isPdfMode ? 'pdf-mode' : ''}`}>
+      {!isPdfMode && (
+        <div className="fixed top-4 left-4 z-10">
+          <button
+            onClick={addTable}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Add Table
+          </button>
+        </div>
+      )}
       <div 
         ref={canvasRef}
         className="workbook-canvas"
-        style={{ height: canvasHeight }}
+        style={isPdfMode ? {
+          height: `${PDF_PAGE.HEIGHT}px`,
+          marginBottom: '2rem',
+          pageBreakAfter: 'always',
+          padding: `${PDF_PAGE.MARGIN}px`,
+        } : {
+          height: canvasHeight
+        }}
       >
         <DndContext onDragEnd={handleDragEnd}>
           {tables.map((table) => (
@@ -85,10 +127,31 @@ export function Workbook() {
               key={table.id}
               id={table.id}
               position={table.position}
+              isPdfMode={isPdfMode}
+              currentPage={currentPage}
             />
           ))}
         </DndContext>
       </div>
+      {isPdfMode && maxPage > 0 && (
+        <div className="fixed bottom-4 right-4 flex items-center space-x-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          <span className="text-sm">Page {currentPage} of {maxPage}</span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(maxPage, p + 1))}
+            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            disabled={currentPage === maxPage}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 } 

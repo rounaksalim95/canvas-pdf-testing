@@ -33,3 +33,33 @@
   /* Ensure tables stay above the canvas */
   z-index: 1;
 }
+
+/* PDF Mode Styles */
+.pdf-mode .workbook-canvas {
+  /* Reset height for PDF pages */
+  min-height: auto;
+  /* Add page margins */
+  padding: 40px;
+  /* Add page break after each page */
+  page-break-after: always;
+  /* Print styles */
+  @media print {
+    margin: 0;
+    padding: 40px;
+    box-shadow: none;
+  }
+}
+
+.pdf-mode .table-container {
+  cursor: default;
+  /* Ensure tables break across pages properly */
+  page-break-inside: avoid;
+}
+
+/* Hide UI elements when printing */
+@media print {
+  .pdf-mode button,
+  .pdf-mode .fixed {
+    display: none !important;
+  }
+}
